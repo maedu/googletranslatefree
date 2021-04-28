@@ -66,12 +66,11 @@ func encodeURI(s string) (string, error) {
 }
 
 func Translate(source, sourceLang, targetLang string) (Translation, error) {
-	var text []string
 	var result Result
 
 	encodedSource, err := encodeURI(source)
 	if err != nil {
-		return "err", err
+		return Translation{}, err
 	}
 	url := "https://translate.googleapis.com/translate_a/single?client=gtx" +
 		"&sl=" + sourceLang +
