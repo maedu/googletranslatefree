@@ -83,13 +83,13 @@ func Translate(source, sourceLang, targetLang string) (Translation, error) {
 
 	r, err := http.Get(url)
 	if err != nil {
-		return Translation{}, fmt.Errorf("Error getting translate.googleapis.com: %w")
+		return Translation{}, fmt.Errorf("Error getting translate.googleapis.com: %w", err)
 	}
 	defer r.Body.Close()
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return Translation{}, fmt.Errorf("Error reading response body: %w")
+		return Translation{}, fmt.Errorf("Error reading response body: %w", err)
 	}
 
 	bReq := strings.Contains(string(body), `<title>Error 400 (Bad Request)`)
@@ -99,7 +99,7 @@ func Translate(source, sourceLang, targetLang string) (Translation, error) {
 
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return Translation{}, fmt.Errorf("Error unmarshaling data: %w")
+		return Translation{}, fmt.Errorf("Error unmarshaling data: %w", err)
 	}
 
 	if len(result.Sentences) == 0 {
