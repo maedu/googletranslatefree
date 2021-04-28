@@ -11,6 +11,36 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
+type Sentence struct {
+	Orig  string `json:"orig"`
+	Trans string `json:"trans"`
+}
+
+type Dict struct {
+	Pos      string   `json:"pos"`
+	Terms    []string `json:"terms"`
+	BaseForm string   `json:"base_form"`
+}
+
+type AlternativeTranslation struct {
+	Alternative []Alternative `json:"alternative"`
+}
+
+type Alternative struct {
+	WordPostproc string `json:"word_postproc"`
+}
+
+type Result struct {
+	Sentences               []Sentence               `json:"sentences"`
+	Dict                    []Dict                   `json:"dict"`
+	AlternativeTranslations []AlternativeTranslation `json:"alternative_translations"`
+}
+type Translation struct {
+	Orig         string
+	Trans        string
+	Alternatives []string
+}
+
 // javascript "encodeURI()"
 // so we embed js to our golang programm
 func encodeURI(s string) (string, error) {
@@ -35,50 +65,62 @@ func encodeURI(s string) (string, error) {
 	return v, nil
 }
 
-func Translate(source, sourceLang, targetLang string) (string, error) {
+func Translate(source, sourceLang, targetLang string) (Translation, error) {
 	var text []string
-	var result []interface{}
+	var result Result
 
 	encodedSource, err := encodeURI(source)
 	if err != nil {
 		return "err", err
 	}
-	url := "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" +
-		sourceLang + "&tl=" + targetLang + "&dt=t&q=" + encodedSource
+	url := "https://translate.googleapis.com/translate_a/single?client=gtx" +
+		"&sl=" + sourceLang +
+		"&tl=" + targetLang +
+		"&q=" + encodedSource +
+		"&dt=bd&dt=t&dt=at" +
+		"&dj=1"
+
+	// dt=t&dt=at&dj=1&dt=rm&dt=bd&dt=ss&dt=md&dt=ex&dt=rw
 
 	r, err := http.Get(url)
 	if err != nil {
-		return "err", errors.New("Error getting translate.googleapis.com")
+		return Translation{}, errors.New("Error getting translate.googleapis.com")
 	}
 	defer r.Body.Close()
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return "err", errors.New("Error reading response body")
+		return Translation{}, errors.New("Error reading response body")
 	}
 
 	bReq := strings.Contains(string(body), `<title>Error 400 (Bad Request)`)
 	if bReq {
-		return "err", errors.New("Error 400 (Bad Request)")
+		return Translation{}, errors.New("Error 400 (Bad Request)")
 	}
 
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return "err", errors.New("Error unmarshaling data")
+		return Translation{}, errors.New("Error unmarshaling data")
 	}
 
-	if len(result) > 0 {
-		inner := result[0]
-		for _, slice := range inner.([]interface{}) {
-			for _, translatedText := range slice.([]interface{}) {
-				text = append(text, fmt.Sprintf("%v", translatedText))
-				break
-			}
+	if len(result.Sentences) == 0 {
+		return Translation{}, errors.New("No sentences")
+	} else if len(result.Sentences) > 1 {
+		return Translation{}, errors.New(fmt.Sprintf("More than one sentence: %v", result.Sentences))
+	}
+
+	translation := Translation{
+		Orig:         result.Sentences[0].Orig,
+		Trans:        result.Sentences[0].Trans,
+		Alternatives: []string{},
+	}
+
+	for _, alternativeTranslation := range result.AlternativeTranslations {
+		for _, alternative := range alternativeTranslation.Alternative {
+			translation.Alternatives = append(translation.Alternatives, alternative.WordPostproc)
 		}
-		cText := strings.Join(text, "")
-
-		return cText, nil
-	} else {
-		return "err", errors.New("No translated data in responce")
 	}
+
+	return translation, nil
+
 }
