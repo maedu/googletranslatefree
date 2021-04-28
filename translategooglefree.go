@@ -3,7 +3,6 @@ package translategooglefree
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -104,13 +103,19 @@ func Translate(source, sourceLang, targetLang string) (Translation, error) {
 
 	if len(result.Sentences) == 0 {
 		return Translation{}, errors.New("No sentences")
-	} else if len(result.Sentences) > 1 {
-		return Translation{}, errors.New(fmt.Sprintf("More than one sentence: %v", result.Sentences))
+	}
+
+	origs := []string{}
+	trans := []string{}
+
+	for _, sentence := range result.Sentences {
+		origs = append(origs, sentence.Orig)
+		trans = append(trans, sentence.Trans)
 	}
 
 	translation := Translation{
-		Orig:         result.Sentences[0].Orig,
-		Trans:        result.Sentences[0].Trans,
+		Orig:         strings.Join(origs, ""),
+		Trans:        strings.Join(trans, ""),
 		Alternatives: []string{},
 	}
 
